@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Jujutsu Rogue: Sorcerer Battle - Professional UI</title>
+    <style>
+        :root {
+            --primary-glow: #9c27b0;
+            --sukuna-red: #ff3e3e;
+            --gojo-blue: #00e5ff;
+            --ui-bg: rgba(15, 15, 15, 0.85);
+            --border-gold: #ffd700;
+        }
+
+        body { margin: 0; background: #000; color: white; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; overflow: hidden; touch-action: none; text-transform: uppercase; letter-spacing: 1px; }
+        canvas { display: block; background: #050505; }
+
+        /* UI SUPERIOR - STATUS BAR */
+        #ui-top { 
+            position: absolute; top: 15px; left: 15px; pointer-events: none; z-index: 10; 
+            background: linear-gradient(90deg, var(--ui-bg), transparent);
+            padding: 10px 20px; border-left: 4px solid var(--border-gold);
+            clip-path: polygon(0 0, 100% 0, 90% 100%, 0% 100%);
+        }
+        .stats-text { font-size: 12px; font-weight: 800; margin-bottom: 5px; color: #aaa; }
+        .stats-val { color: var(--border-gold); text-shadow: 0 0 5px rgba(255,215,0,0.5); }
+        
+        .bar-container { 
+            width: 180px; height: 10px; background: #111; margin: 4px 0 10px 0; 
+            border-radius: 0 5px 5px 0; overflow: hidden; border: 1px solid #333;
+            position: relative; box-shadow: inset 0 0 5px #000;
+        }
+        .domain-bar { 
+            width: 0%; height: 100%; background: linear-gradient(90deg, #6200ea, #9c27b0); 
+            box-shadow: 0 0 15px var(--primary-glow); transition: width 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
+        }
+
+        /* JOYSTICK */
+        #joystick-base { 
+            position: absolute; bottom: 50px; left: 50px; width: 110px; height: 110px; 
+            background: radial-gradient(circle, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0) 70%); 
+            border-radius: 50%; border: 1px solid rgba(255,255,255,0.1);
+        }
+        #joystick-stick { 
+            position: absolute; top: 35px; left: 35px; width: 40px; height: 40px; 
+            background: #fff; border-radius: 50%; opacity: 0.3; pointer-events: none;
+            box-shadow: 0 0 20px #fff;
+        }
+
+        /* BOTÕES DE AÇÃO */
+        #action-buttons { position: absolute; bottom: 40px; right: 30px; display: none; flex-direction: column; gap: 20px; align-items: flex-end; }
+        .btn-action { 
+            width: 70px; height: 70px; border-radius: 50%; border: 2px solid #fff; 
+            color: white; font-weight: 900; background: rgba(0,0,0,0.7); font-size: 10px;
+            backdrop-filter: blur(5px); transition: transform 0.1s, box-shadow 0.2s;
+            display: flex; align-items: center; justify-content: center; text-align: center;
+        }
+        .btn-action:active { transform: scale(0.9); }
+        
+        #btn-shoot { border-color: #fff; box-shadow: 0 0 10px rgba(255,255,255,0.2); }
+        #btn-domain-p1 { 
+            background: linear-gradient(45deg, #4a00e0, #8e2de2); border-color: #f0f; 
+            box-shadow: 0 0 20px var(--primary-glow); animation: pulse 2s infinite;
+        }
+        #btn-nuke-p1 { 
+            background: linear-gradient(45deg, #ff0000, #ff8c00); border-color: gold; 
+            box-shadow: 0 0 20px orange; font-size: 9px;
+        }
+
+        /* MENUS */
+        .menu-overlay { 
+            position: absolute; inset: 0; background: radial-gradient(circle, rgba(20,20,20,0.9) 0%, #000 100%);
+            display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 100;
+        }
+        h1 { font-size: 48px; margin-bottom: 30px; filter: drop-shadow(0 0 15px #f00); }
+        
+        .char-btn { 
+            padding: 18px 30px; margin: 10px; width: 280px; font-size: 14px; font-weight: 900; 
+            border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; cursor: pointer;
+            transition: all 0.3s; background: #111; color: #fff;
+            position: relative; overflow: hidden;
+        }
+        .char-btn:hover { background: #222; border-color: var(--border-gold); transform: translateY(-2px); }
+        .char-btn::after { content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent); transition: 0.5s; }
+        .char-btn:hover::after { left: 100%; }
+
+        #flash { position: fixed; inset: 0; background: white; opacity: 0; pointer-events: none; z-index: 200; transition: opacity 0.1s; }
+
+        @keyframes pulse {
+            0% { transform: scale(1); box-shadow: 0 0 10px var(--primary-glow); }
+            50% { transform: scale(1.05); box-shadow: 0 0 25px var(--primary-glow); }
+            100% { transform: scale(1); box-shadow: 0 0 10px var(--primary-glow); }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="flash"></div>
+
+    <div id="ui-top">
+        <div class="stats-text">RANK S | RECORD: <span id="high-score" class="stats-val">0</span></div>
+        <div class="stats-text" style="color: #fff; font-size: 14px;">LEVEL <span id="level-txt">1</span> | TARGETS: <span id="en-count" class="stats-val">0</span></div>
+        
+        <div id="p1-ui">
+            <div style="font-size:9px; font-weight: 900; color: #8e2de2;">P1 CURSED ENERGY</div>
+            <div class="bar-container"><div id="domain-bar-p1" class="domain-bar"></div></div>
+        </div>
+        <div id="p2-ui" style="display:none">
+            <div style="font-size:9px; font-weight: 900; color: #00e5ff;">P2 CURSED ENERGY</div>
+            <div class="bar-container"><div id="domain-bar-p2" class="domain-bar"></div></div>
+        </div>
+    </div>
+
+    <div id="menu" class="menu-overlay">
+        <h1 style="color: #ff3e3e;">JUJUTSU<br><span style="color: #fff; font-size: 24px;">ROGUE SORCERER</span></h1>
+        <button class="char-btn" style="border-left: 5px solid #444" onclick="selectMode('solo')">SOLO MISSION</button>
+        <button class="char-btn" style="border-left: 5px solid var(--border-gold)" onclick="selectMode('coop')">CO-OPERATIVE</button>
+        <div id="char-list" style="display:none; margin-top: 20px;">
+            <h3 id="select-title" style="font-size: 12px; color: gold;">SELECT YOUR SORCERER</h3>
+            <button class="char-btn" style="background: linear-gradient(90deg, #300, #111); border-color: #8b0000" onclick="handlePick('sukuna')">RYOMEN SUKUNA</button>
+            <button class="char-btn" style="background: linear-gradient(90deg, #002, #111); border-color: #0044cc" onclick="handlePick('gojo')">SATORU GOJO</button>
+            <button class="char-btn" style="background: linear-gradient(90deg, #202, #111); border-color: #5a008a" onclick="handlePick('yuta')">YUTA OKKOTSU</button>
+        </div>
+    </div>
+
+    <div id="coop-wait" class="menu-overlay" style="display:none">
+        <h2 style="color:var(--border-gold)">WAITING FOR SORCERER 2...</h2>
+        <p style="font-size: 12px; opacity: 0.6;">PRESS <b style="color:#fff">(A)</b> ON GAMEPAD</p>
+    </div>
+
+    <div id="upgrade-menu" class="menu-overlay" style="display:none">
+        <h2 style="color:var(--border-gold); margin-bottom: 30px;">WAVE CLEARED - EVOLVE</h2>
+        <button class="char-btn" style="border-color: #2e7d32" onclick="applyUpgrade('hp')">REINFORCE LIFE (A)</button>
+        <button class="char-btn" style="border-color: #c62828" onclick="applyUpgrade('atk')">ENHANCE STRENGTH (X)</button>
+        <button class="char-btn" style="border-color: #1565c0" onclick="applyUpgrade('tech')">CURSED EVOLUTION (Y)</button>
+    </div>
+
+    <div id="joystick-base"><div id="joystick-stick"></div></div>
+    <div id="action-buttons">
+        <button id="btn-nuke-p1" class="btn-action" onclick="useNuke(0)">ULTIMATE<br>TECHNIQUE</button>
+        <button id="btn-domain-p1" class="btn-action" onclick="useDomain(0)">DOMAIN<br>EXPANSION</button>
+        <button id="btn-shoot" class="btn-action">CURSED<br>STRIKE</button>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+
+let players = [], projectiles = [], enemies = [], effects = [], gameActive = false;
+let isCoop = false, p2GamepadIdx = null, lastPick = null;
+let enemiesDefeated = 0, enemiesToSpawn = 0;
+let shakeTime = 0;
+
+const bgMusic = new Audio('fundo.mp3'); bgMusic.loop = true;
+const sounds = { sukuna: new Audio('sukuna.mp3'), gojo: new Audio('gojo.mp3'), yuta: new Audio('gojo.mp3') };
+
+document.getElementById('high-score').innerText = localStorage.getItem('jujutsuRecord') || 0;
+
+class Player {
+    constructor(type, x, y, id) {
+        this.id = id; this.x = x; this.y = y; this.radius = 12; this.type = type;
+        this.hp = 100; this.maxHp = 100; this.level = 1; this.techLevel = 1;
+        this.damage = 1; this.energy = 0; this.fireballsAngle = 0;
+        this.domainActive = false; this.moveX = 0; this.moveY = 0; this.lastX = 1; this.lastY = 0;
+    }
+    draw() {
+        if(this.level >= 3) {
+            ctx.beginPath(); ctx.arc(this.x, this.y, 24, 0, Math.PI*2);
+            ctx.strokeStyle = this.type === 'gojo' ? "rgba(0,255,255,0.6)" : "rgba(255,0,0,0.6)";
+            ctx.lineWidth = 3; ctx.stroke();
+        }
+        ctx.beginPath(); ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.fillStyle = this.type==='sukuna'?'#f44':(this.type==='gojo'?'#4af':'#c8f');
+        ctx.fill(); ctx.strokeStyle = "white"; ctx.stroke();
+        
+        const barW = 36; const barH = 5; const portSize = 14;
+        const startX = this.x - (barW + portSize) / 2;
+        const startY = this.y - 30;
+
+        ctx.fillStyle = "rgba(0,0,0,0.8)";
+        ctx.fillRect(startX, startY, portSize, portSize);
+        ctx.strokeStyle = this.type==='sukuna'?'#f44':(this.type==='gojo'?'#4af':'#c8f');
+        ctx.lineWidth = 1;
+        ctx.strokeRect(startX, startY, portSize, portSize);
+        
+        ctx.fillStyle = "#fff";
+        ctx.font = "bold 10px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText(this.type.charAt(0).toUpperCase(), startX + portSize/2, startY + 11);
+
+        ctx.fillStyle = "#333";
+        ctx.fillRect(startX + portSize + 2, startY + (portSize-barH)/2, barW, barH);
+        ctx.fillStyle = "#39ff14";
+        ctx.fillRect(startX + portSize + 2, startY + (portSize-barH)/2, (this.hp/this.maxHp)*barW, barH);
+
+        if((this.type === 'sukuna' || this.type === 'yuta') && this.techLevel >= 2) {
+            this.fireballsAngle += 0.08;
+            for(let i=0; i<3; i++) {
+                let ang = this.fireballsAngle + (i * (Math.PI*2/3));
+                let fx = this.x + Math.cos(ang) * 60; let fy = this.y + Math.sin(ang) * 60;
+                ctx.beginPath(); ctx.arc(fx, fy, 8, 0, Math.PI*2); ctx.fillStyle = "#ff4500"; ctx.fill();
+                enemies.forEach(en => { if(Math.hypot(en.x - fx, en.y - fy) < 20) { en.hp -= this.damage * 0.1; if(en.hp <= 0) die(en, this.id); } });
+            }
+        }
+    }
+    update() {
+        this.x += this.moveX * 4.5; this.y += this.moveY * 4.5;
+        this.x = Math.max(this.radius, Math.min(canvas.width - this.radius, this.x));
+        this.y = Math.max(this.radius, Math.min(canvas.height - this.radius, this.y));
+        if(Math.abs(this.moveX) > 0.1 || Math.abs(this.moveY) > 0.1) { this.lastX = this.moveX; this.lastY = this.moveY; }
+    }
+}
+
+function selectMode(m) {
+    if(m === 'coop') { isCoop = true; document.getElementById('coop-wait').style.display = 'flex'; waitForGamepad(); }
+    else { document.getElementById('char-list').style.display = 'block'; }
+}
+
+function waitForGamepad() {
+    const gps = navigator.getGamepads();
+    for(let i=0; i<gps.length; i++) {
+        if(gps[i] && gps[i].buttons[0].pressed) {
+            p2GamepadIdx = i; document.getElementById('coop-wait').style.display = 'none';
+            document.getElementById('char-list').style.display = 'block'; return;
+        }
+    }
+    requestAnimationFrame(waitForGamepad);
+}
+
+function handlePick(type) {
+    if(!lastPick && isCoop) { lastPick = type; document.getElementById('select-title').innerText = "PLAYER 2 - SELECT YOUR SORCERER"; }
+    else { startGame(lastPick || type, type); }
+}
+
+function startGame(p1Type, p2Type) {
+    document.getElementById('menu').style.display = 'none';
+    document.getElementById('action-buttons').style.display = 'flex';
+    players.push(new Player(p1Type, canvas.width/2 - 40, canvas.height/2, 0));
+    if(isCoop) { players.push(new Player(p2Type, canvas.width/2 + 40, canvas.height/2, 1)); document.getElementById('p2-ui').style.display = 'block'; }
+    bgMusic.play().catch(e => {}); startWave(); gameActive = true; animate();
+}
+
+function useNuke(pIdx) {
+    const p = players[pIdx]; if(p.energy < 50 || p.level < 3) return;
+    p.energy -= 50; shakeTime = 20;
+    let effect = p.type; if(p.type === 'yuta') effect = Math.random() > 0.5 ? 'sukuna' : 'gojo';
+    if(effect === 'sukuna') {
+        effects.push({ type: 'world-cut', alpha: 1, y: Math.random() * canvas.height });
+        enemies.forEach(en => { en.hp -= 100; if(en.hp <= 0) die(en, pIdx); });
+    } else {
+        projectiles.push({ x: p.x, y: p.y, vx: p.lastX*15, vy: p.lastY*15, type: 'nuke', owner: pIdx, radius: 60 });
+    }
+}
+
+function useDomain(pIdx) {
+    const p = players[pIdx]; if(p.energy < 100) return;
+    if(sounds[p.type]) { sounds[p.type].currentTime = 0; sounds[p.type].play(); }
+    document.getElementById('flash').style.opacity = '0.8'; setTimeout(() => document.getElementById('flash').style.opacity = '0', 200);
+    p.energy = 0; p.domainActive = true; 
+    shakeTime = 40;
+    setTimeout(() => p.domainActive = false, 6000);
+}
+
+function die(en, pIdx) {
+    let idx = enemies.indexOf(en);
+    if(idx > -1) { 
+        // Gerar Partículas Roxas de Desintegração
+        for(let i=0; i<12; i++) {
+            effects.push({
+                type: 'particle',
+                x: en.x,
+                y: en.y,
+                vx: (Math.random()-0.5) * 6,
+                vy: (Math.random()-0.5) * 6,
+                alpha: 1,
+                size: Math.random() * 4 + 2
+            });
+        }
+        enemies.splice(idx, 1); enemiesDefeated++; 
+        if(!players[pIdx].domainActive) players[pIdx].energy = Math.min(100, players[pIdx].energy + 8); 
+    }
+}
+
+function shoot(pIdx) {
+    const p = players[pIdx];
+    let t = p.type; if(p.type === 'yuta' && p.techLevel >= 2) t = Math.random() > 0.5 ? 'sukuna' : 'gojo';
+    projectiles.push({ x: p.x, y: p.y, vx: p.lastX*10, vy: p.lastY*10, type: t, owner: pIdx });
+}
+
+function animate() {
+    if (!gameActive) { updateGamepad(); requestAnimationFrame(animate); return; }
+    requestAnimationFrame(animate); updateGamepad();
+    
+    let sx = 0, sy = 0;
+    if(shakeTime > 0) { sx = (Math.random()-0.5)*10; sy = (Math.random()-0.5)*10; shakeTime--; }
+    
+    ctx.save();
+    ctx.translate(sx, sy);
+    
+    let bgColor = "#050505";
+    players.forEach(p => {
+        if(p.domainActive) {
+            if(p.type === 'sukuna') bgColor = "#200";
+            if(p.type === 'gojo') bgColor = "#eee";
+        }
+    });
+    ctx.fillStyle = bgColor; ctx.fillRect(-20, -20, canvas.width+40, canvas.height+40);
+    
+    players.forEach(p => { p.update(); p.draw(); });
+
+    effects.forEach((eff, i) => {
+        if(eff.type === 'world-cut') {
+            ctx.strokeStyle = `rgba(255, 255, 255, ${eff.alpha})`; ctx.lineWidth = 20;
+            ctx.beginPath(); ctx.moveTo(0, eff.y); ctx.lineTo(canvas.width, eff.y + (Math.random()-0.5)*100); ctx.stroke();
+            eff.alpha -= 0.05; if(eff.alpha <= 0) effects.splice(i, 1);
+        } else if(eff.type === 'particle') {
+            eff.x += eff.vx; eff.y += eff.vy;
+            eff.alpha -= 0.02;
+            ctx.fillStyle = `rgba(148, 0, 211, ${eff.alpha})`; // Roxo Amaldiçoado
+            ctx.beginPath(); ctx.arc(eff.x, eff.y, eff.size, 0, Math.PI*2); ctx.fill();
+            if(eff.alpha <= 0) effects.splice(i, 1);
+        }
+    });
+
+    projectiles.forEach((p, pi) => {
+        p.x += p.vx; p.y += p.vy;
+        if(p.type === 'nuke') {
+            ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI*2);
+            ctx.fillStyle = "rgba(75, 0, 130, 0.7)"; ctx.fill(); ctx.strokeStyle = "magenta"; ctx.stroke();
+            enemies.forEach(en => { if(Math.hypot(p.x-en.x, p.y-en.y) < p.radius) { en.hp -= 2; if(en.hp<=0) die(en, p.owner); } });
+        } else {
+            ctx.beginPath(); ctx.arc(p.x, p.y, 5, 0, Math.PI*2);
+            ctx.fillStyle = p.type === 'gojo' ? '#00e5ff' : '#f00'; ctx.fill();
+            enemies.forEach(en => { if(Math.hypot(p.x - en.x, p.y - en.y) < 20) { 
+                let owner = players[p.owner];
+                if(p.type === 'gojo' && owner.techLevel >= 2) { enemies.forEach(e => { if(Math.hypot(e.x-en.x,e.y-en.y)<100){ e.x+=(en.x-e.x)*0.1; e.y+=(en.y-e.y)*0.1; } }); }
+                en.hp -= owner.damage; projectiles.splice(pi, 1); if(en.hp<=0) die(en, p.owner); 
+            } });
+        }
+        if(p.x < 0 || p.x > canvas.width || p.y < 0 || p.y > canvas.height) projectiles.splice(pi, 1);
+    });
+
+    enemies.forEach(en => {
+        let target = players[0]; if(isCoop && players[1] && Math.hypot(en.x-players[1].x, en.y-players[1].y) < Math.hypot(en.x-players[0].x, en.y-players[0].y)) target = players[1];
+        let frozen = false;
+        players.forEach(p => { 
+            if(p.domainActive) {
+                if(p.type === 'gojo') { frozen = true; }
+            }
+        });
+        if(!frozen) { let ang = Math.atan2(target.y-en.y, target.x-en.x); en.x += Math.cos(ang) * en.speed; en.y += Math.sin(ang) * en.speed; }
+        
+        ctx.save();
+        ctx.translate(en.x, en.y);
+        let wobble = Math.sin(Date.now() * 0.01) * 2;
+        let color = en.variant === 0 ? "#ff3e3e" : (en.variant === 1 ? "#444" : "#adff2f");
+        
+        ctx.beginPath();
+        if(en.variant === 0) {
+            for(let i=0; i<8; i++) {
+                let a = (i/8) * Math.PI*2;
+                let r = 12 + wobble;
+                ctx.lineTo(Math.cos(a)*r*1.5, Math.sin(a)*r*1.5);
+                ctx.lineTo(Math.cos(a+0.2)*r*0.8, Math.sin(a+0.2)*r*0.8);
+            }
+        } else if(en.variant === 1) {
+            ctx.arc(wobble, -wobble, 11, 0, Math.PI*2);
+            ctx.arc(-wobble, wobble, 9, 0, Math.PI*2);
+        } else {
+            ctx.moveTo(0, -15 - wobble);
+            ctx.bezierCurveTo(15, 0, 10, 15, 0, 15);
+            ctx.bezierCurveTo(-10, 15, -15, 0, 0, -15 - wobble);
+        }
+        ctx.fillStyle = color; ctx.fill();
+        
+        ctx.beginPath(); ctx.arc(2, -3, 3, 0, Math.PI*2); ctx.fillStyle = "#fff"; ctx.fill();
+        ctx.beginPath(); ctx.arc(2, -3, 1.5, 0, Math.PI*2); ctx.fillStyle = "#000"; ctx.fill();
+        ctx.restore();
+
+        players.forEach(p => { 
+            if(Math.hypot(p.x-en.x, p.y-en.y) < 22) { p.hp -= 0.5; if(p.hp <= 0) location.reload(); }
+            if(p.domainActive && p.type === 'sukuna' && Math.hypot(p.x-en.x, p.y-en.y) < 250) { 
+                en.hp -= 0.15; 
+                ctx.beginPath(); ctx.strokeStyle = "rgba(255,255,255,0.6)"; ctx.lineWidth = 1;
+                let offset = 15;
+                ctx.moveTo(en.x - offset, en.y - offset); ctx.lineTo(en.x + offset, en.y + offset);
+                ctx.moveTo(en.x + offset, en.y - offset); ctx.lineTo(en.x - offset, en.y + offset);
+                ctx.stroke();
+                if(en.hp <= 0) die(en, p.id); 
+            }
+        });
+    });
+
+    ctx.restore();
+
+    if(enemiesDefeated >= enemiesToSpawn && enemies.length === 0) { gameActive = false; document.getElementById('upgrade-menu').style.display = 'flex'; }
+    updateUI();
+}
+
+function updateUI() {
+    document.getElementById('level-txt').innerText = players[0].level;
+    document.getElementById('en-count').innerText = Math.max(0, Math.floor(enemiesToSpawn - enemiesDefeated));
+    document.getElementById('domain-bar-p1').style.width = players[0].energy + "%";
+    document.getElementById('btn-domain-p1').style.display = players[0].energy >= 100 ? 'flex' : 'none';
+    document.getElementById('btn-nuke-p1').style.display = players[0].level >= 3 && players[0].energy >= 50 ? 'flex' : 'none';
+    if(isCoop && players[1]) document.getElementById('domain-bar-p2').style.width = players[1].energy + "%";
+}
+
+function startWave() {
+    enemies = []; enemiesDefeated = 0; enemiesToSpawn = players[0].level * (isCoop ? 10 : 5);
+    for(let i=0; i<enemiesToSpawn; i++) setTimeout(() => { 
+        if(gameActive) enemies.push({
+            hp: 1 + (players[0].level * 0.35), 
+            speed: 1.4 + (players[0].level * 0.06), 
+            variant: Math.floor(Math.random() * 3),
+            x: Math.random() * canvas.width, 
+            y: -20
+        }); 
+    }, i * 400);
+}
+
+function applyUpgrade(type) { players.forEach(p => { if(type === 'hp') { p.maxHp += 20; p.hp = p.maxHp; } if(type === 'atk') p.damage += 0.5; if(type === 'tech') p.techLevel = 2; p.level++; }); document.getElementById('upgrade-menu').style.display = 'none'; startWave(); gameActive = true; }
+
+const jBase = document.getElementById('joystick-base'); const jStick = document.getElementById('joystick-stick');
+jBase.addEventListener('touchmove', e => {
+    e.preventDefault(); const r = jBase.getBoundingClientRect();
+    const x = e.touches[0].clientX - (r.left + 50); const y = e.touches[0].clientY - (r.top + 50);
+    const d = Math.min(40, Math.hypot(x, y)); const a = Math.atan2(y, x);
+    players[0].moveX = (Math.cos(a) * d) / 40; players[0].moveY = (Math.sin(a) * d) / 40;
+    jStick.style.transform = `translate(${players[0].moveX*30}px, ${players[0].moveY*30}px)`;
+});
+jBase.addEventListener('touchend', () => { players[0].moveX = 0; players[0].moveY = 0; jStick.style.transform = `translate(0,0)`; });
+document.getElementById('btn-shoot').addEventListener('touchstart', e => { e.preventDefault(); shoot(0); });
+
+function updateGamepad() {
+    const gps = navigator.getGamepads();
+    const gp = gps[p2GamepadIdx || 0]; if (!gp) return;
+    const targetIdx = isCoop ? 1 : 0;
+    let dx = gp.axes[0], dy = gp.axes[1]; 
+    if(Math.abs(dx)<0.2) dx=0; if(Math.abs(dy)<0.2) dy=0;
+    if(gp.buttons[14].pressed) dx = -1; if(gp.buttons[15].pressed) dx = 1;
+    if(gp.buttons[12].pressed) dy = -1; if(gp.buttons[13].pressed) dy = 1;
+    players[targetIdx].moveX = dx; players[targetIdx].moveY = dy;
+    if (gp.buttons[0].pressed) { if(!gameActive) applyUpgrade('hp'); else if(!gp.b0) {shoot(targetIdx); gp.b0=true;} } else gp.b0=false;
+    if (gp.buttons[1].pressed && !gp.b1) { if(!gameActive) applyUpgrade('atk'); else { useNuke(targetIdx); gp.b1=true; } } else if(!gp.buttons[1].pressed) gp.b1=false;
+    if (gp.buttons[3].pressed) { if(!gameActive) applyUpgrade('tech'); else useDomain(targetIdx); }
+}
+</script>
+</body>
+</html>
