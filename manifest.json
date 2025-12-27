@@ -1,0 +1,16 @@
+{
+  "name": "Jujutsu Rogue: Sorcerer Battle",
+  "short_name": "JujutsuRogue",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#050505",
+  "theme_color": "#9c27b0",
+  "orientation": "landscape",
+  "icons": [
+    {
+      "src": "img.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
